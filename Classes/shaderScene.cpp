@@ -45,8 +45,8 @@ Scene* shaderScene::createScene()
     Size visibleSize = Director::getInstance()->getWinSize();
     Vec2 origin = Director::getInstance()->getVisibleOrigin();
 
-    auto layer = OpenGLDrawCubeLayer::create();
- //   layer->setPosition(Vec2(-100.0f,-100.0f));
+    auto layer = OpenGLCameraLayer::create();
+  //  layer->setPosition(Vec2(-100.0f,-100.0f));
     this->addChild(layer);
 
 //    auto layer2 = OpenGLDrawQuadLayer::create();

@@ -25,6 +25,10 @@ bool OpenGLDrawLayer::init()
         return false;
     }
     
+
+
+
+
     this->initOpenGL();
     return true;
 }
@@ -297,12 +301,10 @@ void OpenGLDrawCubeLayer::initOpenGL()
      在OpenGL中，GLSL的shader使用的流程与C语言相似，每个shader类似一个C模块，首先需要单独编译（compile），
      然后一组编译好的shader连接（link）成一个完整程序。
      */
-    
     auto program = GLProgram::createWithFilenames("res/textureVertextShader.vert", "res/textureFragmentShader.frag");
     program->link();
     program->updateUniforms();
     this->setGLProgram(program);
-    
     /*
      使用VBO和VAO的步骤都差不多，步骤如下：
      1 glGenXXX
@@ -396,7 +398,7 @@ void OpenGLDrawCubeLayer::initOpenGL()
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexVBO);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices) , indices, GL_STATIC_DRAW);
     
-    
+    glEnable(GL_DEPTH_TEST);
     _textureVBO = Director::getInstance()->getTextureCache()->addImage("res/HelloWorld.png")->getName();
 
     
@@ -431,18 +433,15 @@ void OpenGLDrawCubeLayer::onDraw(const Mat4 &transform, uint32_t flags)
     Mat4 mat_Perspective;
     Size visibleSize = Director::getInstance()->getVisibleSize();
     //    Mat4::createOrthographic(1, visibleSize.width/visibleSize.height, 0.1f, 10000.0f, &mat_Orthographic);
-    Mat4::createPerspective(60, visibleSize.width/visibleSize.height, 0.1f, 100.0f, &mat_Perspective);
+    Mat4::createPerspective(45, visibleSize.width/visibleSize.height, 0.1f, 100.0f, &mat_Perspective);
     
     Mat4 mat = mat_Perspective * mat_Translation * mat_Rotation * mat_Scale ;
-    
     
     //    mat = mat_Orthographic * mat;
     
     //    glProgramState->setUniformMat4("u_transform", mat);
      GLuint transformLoc = glGetUniformLocation(getGLProgram()->getProgram(), "u_transform");
-    glUniformMatrix4fv(transformLoc, 1, GL_FALSE, mat.m);
-    glEnable(GL_DEPTH_TEST);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        glUniformMatrix4fv(transformLoc, 1, GL_FALSE, mat.m);
      GL::bindTexture2D(_textureVBO);
     /*
      VAO里的VBOs都设置好了以后，在绘制的地方只需要设置当前绑定的VAO是哪个，
@@ -451,12 +450,16 @@ void OpenGLDrawCubeLayer::onDraw(const Mat4 &transform, uint32_t flags)
     
     // 设置当前绑定的VAO
     glBindVertexArray(_vao);
+ //   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    
+    //打开写入深度缓冲。
+    glDepthMask(GL_TRUE);
+    //打开深度测试。
     glEnable(GL_DEPTH_TEST);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-//    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-//    glEnable(GL_DEPTH_BUFFER_BIT);
+    glDepthFunc(GL_LESS);
     
     glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_BYTE,(GLvoid*)0);
+    
 //    glDrawElements(GL_LINE_LOOP, 36, GL_UNSIGNED_BYTE,(GLvoid*)0);
     // 绘制三角形
     //   glDrawArrays(GL_TRIANGLES, 0, 6);
@@ -466,6 +469,8 @@ void OpenGLDrawCubeLayer::onDraw(const Mat4 &transform, uint32_t flags)
     
     CC_INCREMENT_GL_DRAWN_BATCHES_AND_VERTICES(1, 6);
     CHECK_GL_ERROR_DEBUG();
+    
+    
 }
 
 OpenGLDrawColorChangeLayer::OpenGLDrawColorChangeLayer()
@@ -661,18 +666,25 @@ void OpenGLDrawTextureLayer::onDraw(const Mat4 &transform,uint32_t flags)
     Mat4::createRotation(Vec3(0.0f,1.0f,0.0f), m_count, &mat_Rotation);
     
     Mat4 mat_Translation;
-    Mat4::createTranslation(Vec3(0.0f,0.0f,-1.0f), &mat_Translation);
+    Mat4::createTranslation(Vec3(0.0f,0.0f,0.0f), &mat_Translation);
     
-    Mat4 mat_Perspective;
     Size visibleSize = Director::getInstance()->getVisibleSize();
-//    Mat4::createOrthographic(1, visibleSize.width/visibleSize.height, 0.1f, 10000.0f, &mat_Orthographic);
-    Mat4::createPerspective(45, visibleSize.width/visibleSize.height, 0.1f, 100.0f, &mat_Perspective);
+    Mat4 mat_Perspective;
+    Mat4::createPerspective(45, visibleSize.width/visibleSize.height, 0.1f, 100000.0f, &mat_Perspective);
     
-//    Mat4::createLookAt(<#const cocos2d::Vec3 &eyePosition#>, <#const cocos2d::Vec3 &targetPosition#>, <#const cocos2d::Vec3 &up#>, <#cocos2d::Mat4 *dst#>)
+    Mat4 mat_Orthographic;
+    Mat4::createOrthographic(visibleSize.width/visibleSize.height, 1, 0.1f, 100000.0f, &mat_Orthographic);
     
-    Mat4 mat = mat_Perspective * mat_Translation * mat_Rotation * mat_Scale ;
     
-   
+    float radius = 1.0f;
+    float camX = sin(m_count) * radius;
+    float camY = cos(m_count) * radius;
+    
+    Mat4 mat_LookAt;
+    Mat4::createLookAt(Vec3(camX, camY,0.0f), Vec3(0.0f,0.0f,0.0f), Vec3(0.0f, 1.0f, 0.0f), &mat_LookAt);
+  //  Mat4 mat =  mat_Perspective  * mat_LookAt * mat_Translation;
+    
+    Mat4 mat = mat_Perspective * mat_LookAt * mat_Translation * mat_Rotation * mat_Scale ;
 //    mat = mat_Orthographic * mat;
     
 //    glProgramState->setUniformMat4("u_transform", mat);
@@ -700,3 +712,240 @@ void OpenGLDrawTextureLayer::onDraw(const Mat4 &transform,uint32_t flags)
     CHECK_GL_ERROR_DEBUG();
 }
 
+
+OpenGLCameraLayer::OpenGLCameraLayer():
+m_count(0.0f)
+,m_yaw(0.0f)
+,m_pitch(0.0f)
+{
+    
+}
+
+OpenGLCameraLayer::~OpenGLCameraLayer()
+{
+    
+}
+
+void OpenGLCameraLayer::initOpenGL()
+{
+    
+    auto multiTouchListener = EventListenerTouchOneByOne::create();
+    multiTouchListener->onTouchBegan = [=](Touch* touch, Event *event) {
+        CCLOG("onTouchesBegan");
+        return true;
+    };
+    multiTouchListener->onTouchMoved = [=](Touch *touch, Event *event) {
+        log("move");
+        
+        auto disX = touch->getDelta().x;
+        auto disY = touch->getDelta().y;
+        float sensitivity = 0.1f;
+        auto xoffset = disX * sensitivity;
+        auto yoffset = disY * sensitivity;
+        
+        m_yaw += xoffset;
+        m_pitch += yoffset;
+        if(m_pitch > 89.0f)
+        {
+            m_pitch = 89.0f;
+        }
+        else if(m_pitch < -89.0f)
+        {
+            m_pitch = -89.0f;
+        }
+        
+    };
+    multiTouchListener->onTouchEnded = [=](Touch *touch, Event *event) {
+    };
+    
+    multiTouchListener->onTouchCancelled = [=](Touch* touch, Event *event) {
+    };
+    _eventDispatcher->addEventListenerWithSceneGraphPriority(multiTouchListener, this);
+    
+    
+    auto program = GLProgram::createWithFilenames("res/textureVertextShader_2.vert", "res/textureFragmentShader_2.frag");
+    program->updateUniforms();
+    program->link();
+    this->setGLProgram(program);
+    
+    glGenVertexArrays(1,&_vao);
+    glBindVertexArray(_vao);
+    
+    struct Vertex
+    {
+        float Position[3];
+        float Color[4];
+        float TexCoord[2];
+    };
+    
+    Vertex data[] =
+    {
+        // Front
+        {{0.5, -0.5, 1}, {1, 0, 0, 1},{1,0}},
+        {{0.5, 0.5, 1}, {0, 1, 0, 1},{1,1}},
+        {{-0.5, 0.5, 1}, {0, 0, 1, 1},{0,1}},
+        {{-0.5, -0.5, 1}, {0, 0, 0, 1},{0,0}},
+        // Back
+        {{0.5, 0.5, 0}, {1, 0, 0, 1},{1,1}},
+        {{-0.5, -0.5, 0}, {0, 1, 0, 1},{0,0}},
+        {{0.5, -0.5, 0}, {0, 0, 1, 1},{1,0}},
+        {{-0.5, 0.5, 0}, {0, 0, 0, 1},{0,1}},
+        // Left
+        {{-0.5, -0.5, 1}, {1, 0, 0, 1},{0,1}},
+        {{-0.5, 0.5, 1}, {0, 1, 0, 1},{1,1}},
+        {{-0.5, 0.5, 0}, {0, 0, 1, 1},{1,0}},
+        {{-0.5, -0.5, 0}, {0, 0, 0, 1},{0,0}},
+        // Right
+        {{0.5, -0.5, 0}, {1, 0, 0, 1},{0,0}},
+        {{0.5, 0.5, 0}, {0, 1, 0, 1},{1,0}},
+        {{0.5, 0.5, 1}, {0, 0, 1, 1},{1,1}},
+        {{0.5, -0.5, 1}, {0, 0, 0, 1},{0,1}},
+        // Top
+        {{0.5, 0.5, 1}, {1, 0, 0, 1},{1,1}},
+        {{0.5, 0.5, 0}, {0, 1, 0, 1},{1,0}},
+        {{-0.5, 0.5, 0}, {0, 0, 1, 1},{0,0}},
+        {{-0.5, 0.5, 1}, {0, 0, 0, 1},{0,1}},
+        // Bottom
+        {{0.5, -0.5, 0}, {1, 0, 0, 1},{1,0}},
+        {{0.5, -0.5, 1}, {0, 1, 0, 1},{1,1}},
+        {{-0.5, -0.5, 1}, {0, 0, 1, 1},{0,1}},
+        {{-0.5, -0.5, 0}, {0, 0, 0, 1},{0,0}}
+    };
+    
+    glGenBuffers(1,&_vertVBO);
+    glBindBuffer(GL_ARRAY_BUFFER, _vertVBO);
+    glBufferData(GL_ARRAY_BUFFER,sizeof(data),data,GL_STATIC_DRAW);
+    
+    GLuint positionLocation = glGetAttribLocation(program->getProgram(), "a_position");
+    glEnableVertexAttribArray(positionLocation);
+    glVertexAttribPointer(positionLocation,3,GL_FLOAT,GL_FALSE,sizeof(Vertex),(GLvoid*)offsetof(Vertex, Position));
+    
+    
+    GLuint colorLocation = glGetAttribLocation(program->getProgram(), "a_color");
+    glEnableVertexAttribArray(colorLocation);
+    glVertexAttribPointer(colorLocation, 4, GL_FLOAT, GL_FALSE, sizeof(Vertex), (GLvoid *)offsetof(Vertex, Color));
+    
+    auto texCoord = glGetAttribLocation(program->getProgram(), "a_texCoord");
+    glEnableVertexAttribArray(texCoord);
+    glVertexAttribPointer(texCoord, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (GLvoid*)offsetof(Vertex,TexCoord));
+    
+    GLuint indexVBO;
+    GLubyte indices[] = { // Front
+        0, 1, 2,
+        2, 3, 0,
+        // Back
+        4, 5, 6,
+        4, 5, 7,
+        // Left
+        8, 9, 10,
+        10, 11, 8,
+        // Right
+        12, 13, 14,
+        14, 15, 12,
+        // Top
+        16, 17, 18,
+        18, 19, 16,
+        // Bottom
+        20, 21, 22,
+        22, 23, 20
+    }; //第二个三角形索引
+    
+    glGenBuffers(1, &indexVBO);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexVBO);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices) , indices, GL_STATIC_DRAW);
+    
+    glEnable(GL_DEPTH_TEST);
+    _textureVBO = Director::getInstance()->getTextureCache()->addImage("res/wall.jpg")->getName();
+    
+    glBindVertexArray(0);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+    
+}
+
+void OpenGLCameraLayer::onDraw(const Mat4 &transform, uint32_t flags)
+{
+    
+    auto worldPos =  this->getParent()->convertToWorldSpace(this->getPosition());
+    //绑定
+    auto glProgramState = getGLProgramState();
+    //    glProgramState->setUniformMat4("u_mvpMatrix", transform);
+    glProgramState->apply(transform);
+    //    glProgramState->setUniformVec2("u_parentPos", worldPos);
+    
+    // 设置当前绑定的VAO
+    glBindVertexArray(_vao);
+    //打开写入深度缓冲。
+    glDepthMask(GL_TRUE);
+    //打开深度测试。
+    glEnable(GL_DEPTH_TEST);
+    glDepthFunc(GL_LESS);
+    
+    
+    Vec3 cubePositions[] = {
+        Vec3( 0.0f,  0.0f,  0.0f),
+        Vec3( 2.0f,  5.0f, -2.0f),
+        Vec3(-1.5f, -2.2f, -2.5f),
+        Vec3(-3.8f, -2.0f, -12.3f),
+        Vec3(2.4f, -0.4f, -3.5f),
+        Vec3(-1.7f,  3.0f, -7.5f),
+        Vec3( 1.3f, -2.0f, -2.5f),
+        Vec3( 1.5f,  2.0f, -2.5f),
+        Vec3( 1.5f,  0.2f, -1.5f),
+        Vec3(-1.3f,  1.0f, -1.5f)
+    };
+    
+    Vec3 pos_camera;
+    float ra = 5.0f;
+    auto ra_yaw = m_yaw * 3.1415926 /180.0f;
+    auto ra_pitch = m_pitch * 3.1415926 /180.0f;
+    pos_camera.x = ra * cos(ra_yaw) * cos(ra_pitch);
+    pos_camera.y = ra * sin(-ra_pitch);
+    pos_camera.z = ra * sin(ra_yaw) * cos(ra_pitch);
+    
+    for(int i = 0; i< 10;++i)
+    {
+    //    m_count += 0.01;
+        // 设置当前绑定的VAO
+        Mat4 mat_Scale;
+        Mat4::createScale(Vec3(1.0f,1.0f,1.0f), &mat_Scale);
+        
+        Mat4 mat_Rotation;
+        Mat4::createRotation(Vec3(0.0f,1.0f,0.0f), m_count, &mat_Rotation);
+        
+        Mat4 mat_Translation;
+        Mat4::createTranslation(cubePositions[i], &mat_Translation);
+        
+        Mat4 mat_Perspective;
+        Size visibleSize = Director::getInstance()->getVisibleSize();
+        //    Mat4::createOrthographic(1, visibleSize.width/visibleSize.height, 0.1f, 10000.0f, &mat_Orthographic);
+        Mat4::createPerspective(45, visibleSize.width/visibleSize.height, 0.1f, 100.0f, &mat_Perspective);
+        
+        Mat4 mat_lookAt;
+        Mat4::createLookAt(pos_camera, Vec3(0.0f,0.0f,0.0f), Vec3(0.0f,1.0f,0.0f), &mat_lookAt);
+        
+        Mat4 mat = mat_Perspective * mat_lookAt * mat_Translation * mat_Rotation * mat_Scale ;
+        
+        GLuint transformLoc = glGetUniformLocation(getGLProgram()->getProgram(), "u_transform");
+        glUniformMatrix4fv(transformLoc, 1, GL_FALSE, mat.m);
+        GL::bindTexture2D(_textureVBO);
+        /*
+         VAO里的VBOs都设置好了以后，在绘制的地方只需要设置当前绑定的VAO是哪个，
+         就能按照初始化的VAO来绘制，即调用glDrawArrays
+         */
+        
+        //   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        
+        glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_BYTE,(GLvoid*)0);
+    
+    }
+    
+    //    glDrawElements(GL_LINE_LOOP, 36, GL_UNSIGNED_BYTE,(GLvoid*)0);
+    // 绘制三角形
+    //   glDrawArrays(GL_TRIANGLES, 0, 6);
+    
+    // 解绑当前VAO，但并不释放
+    glBindVertexArray(0);
+    CC_INCREMENT_GL_DRAWN_BATCHES_AND_VERTICES(1, 6);
+    CHECK_GL_ERROR_DEBUG();
+}

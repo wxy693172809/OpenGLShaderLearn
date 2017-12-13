@@ -104,4 +104,20 @@ private:
     float m_count = 0.0f;
 };
 
+
+class  OpenGLCameraLayer:public OpenGLDrawLayer
+{
+public:
+    OpenGLCameraLayer();
+    virtual ~OpenGLCameraLayer();
+    CREATE_FUNC(OpenGLCameraLayer);
+    virtual void initOpenGL();
+    virtual void onDraw(const Mat4 &transform,uint32_t flags);
+private:
+    GLuint _textureVBO1;
+    float m_count;
+    float m_yaw;
+    float m_pitch;
+};
+
 #endif /* OpenGLDrawLayer_hpp */
